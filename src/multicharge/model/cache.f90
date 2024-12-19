@@ -14,23 +14,47 @@
 ! limitations under the License.
 
 !> @file multicharge/model/cache.f90
-!> Contains the cache for the charge models 
+!> Contains the cache baseclass for the charge models and a container for mutable cache data
 
 !> Cache for charge models
 module multicharge_model_cache
-   use mctc_env, only : wp
-   use mctc_io, only : structure_type
+   use mctc_env, only: wp
+   use mctc_io, only: structure_type
+   use multicharge_wignerseitz, only: wignerseitz_cell_type, new_wignerseitz_cell
+   use multicharge_ewald, only: get_alpha
    implicit none
    private
 
+   type, public :: cache_container
+      !> Mutable data attribute
+      class(*), allocatable :: raw
+   end type cache_container
+
    !> Cache for the charge model
-   type, public :: mchrg_cache
-      !> Constraint matrix
-      real(wp), allocatable :: cmat(:, :)
-      !> Derivative of constraint matrix w.r.t positions
-      real(wp), allocatable :: dcdr(:, :, :)
-      !> Derivative of constraint matrix w.r.t lattice vectors
-      real(wp), allocatable :: dcdL(:, :, :)
-   end type mchrg_cache
+   type, abstract, public :: model_cache
+      !> CN array
+      real(wp), allocatable :: cn(:)
+      !> Gradients
+      real(wp), allocatable :: dcndr(:, :, :)
+      real(wp), allocatable :: dcndL(:, :, :)
+      real(wp) :: alpha
+      type(wignerseitz_cell_type) :: wsc
+   contains
+      !> Create WSC
+      procedure :: update
+   end type model_cache
+
+contains
+   subroutine update(self, mol)
+      class(model_cache), intent(inout) :: self
+      type(structure_type), intent(in) :: mol
+
+      !> Create WSC
+      if (any(mol%periodic)) then
+         call new_wignerseitz_cell(self%wsc, mol)
+         call get_alpha(mol%lattice, self%alpha)
+      end if
+
+   end subroutine update
 
 end module multicharge_model_cache
