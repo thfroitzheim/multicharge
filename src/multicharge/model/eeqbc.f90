@@ -1286,7 +1286,7 @@ subroutine get_dcmat_3d(self, mol, wsc, dcdr, dcdL)
       end do
 
       rvdw = self%rvdw(iat, iat)
-      wsw = 1 / real(wsc%nimg(iat, iat), wp)
+      wsw = 1.0_wp / real(wsc%nimg(iat, iat), wp)
       do img = 1, wsc%nimg(iat, iat)
          vec = wsc%trans(:, wsc%tridx(img, iat, iat))
 
