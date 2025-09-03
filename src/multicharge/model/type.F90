@@ -126,7 +126,6 @@ module multicharge_model_type
    end interface
 
    real(wp), parameter :: twopi = 2 * pi
-   real(wp), parameter :: eps = sqrt(epsilon(0.0_wp))
 
 contains
 
