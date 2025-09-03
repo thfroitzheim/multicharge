@@ -300,7 +300,7 @@ end subroutine solve
 
 subroutine local_charge(self, mol, trans, qloc, dqlocdr, dqlocdL)
    !> Electronegativity equilibration model
-   class(mchrg_model_type) :: self
+   class(mchrg_model_type), intent(in) :: self
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
    !> Lattice points
