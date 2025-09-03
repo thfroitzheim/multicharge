@@ -226,8 +226,11 @@ subroutine update(self, mol, cache, cn, qloc, dcndr, dcndL, dqlocdr, dqlocdL)
       ! Get full cmat sum over all WSC images (for get_xvec and xvec_derivs)
       call get_cmat_3d(self, mol, ptr%wsc, ptr%cmat)
       if (grad) then
-         if (.not. allocated(ptr%dcdr) .and. .not. allocated(ptr%dcdL)) then
-            allocate(ptr%dcdr(3, mol%nat, mol%nat + 1), ptr%dcdL(3, 3, mol%nat + 1))
+         if (.not. allocated(ptr%dcdr)) then
+            allocate(ptr%dcdr(3, mol%nat, mol%nat + 1))
+         end if
+         if (.not. allocated(ptr%dcdL)) then
+            allocate(ptr%dcdL(3, 3, mol%nat + 1))
          end if
          call get_dcmat_3d(self, mol, ptr%wsc, ptr%dcdr, ptr%dcdL)
       end if
@@ -236,8 +239,11 @@ subroutine update(self, mol, cache, cn, qloc, dcndr, dcndL, dqlocdr, dqlocdL)
 
       ! cmat gradients
       if (grad) then
-         if (.not. allocated(ptr%dcdr) .and. .not. allocated(ptr%dcdL)) then
-            allocate(ptr%dcdr(3, mol%nat, mol%nat + 1), ptr%dcdL(3, 3, mol%nat + 1))
+         if (.not. allocated(ptr%dcdr)) then
+            allocate(ptr%dcdr(3, mol%nat, mol%nat + 1))
+         end if
+         if (.not. allocated(ptr%dcdL)) then
+            allocate(ptr%dcdL(3, 3, mol%nat + 1))
          end if
          call get_dcmat_0d(self, mol, ptr%dcdr, ptr%dcdL)
       end if
@@ -1268,7 +1274,7 @@ subroutine get_dcmat_3d(self, mol, wsc, dcdr, dcdL)
          jzp = mol%id(jat)
          capj = self%cap(jzp)
          rvdw = self%rvdw(iat, jat)
-         wsw = 1 / real(wsc%nimg(jat, iat), wp)
+         wsw = 1.0_wp / real(wsc%nimg(jat, iat), wp)
          do img = 1, wsc%nimg(jat, iat)
             vec = mol%xyz(:, jat) - mol%xyz(:, iat) + wsc%trans(:, wsc%tridx(img, jat, iat))
 

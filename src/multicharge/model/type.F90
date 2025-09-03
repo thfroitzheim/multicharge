@@ -131,7 +131,7 @@ contains
 subroutine get_dir_trans(lattice, trans)
    real(wp), intent(in) :: lattice(:, :)
    real(wp), allocatable, intent(out) :: trans(:, :)
-   integer, parameter :: rep(3) = 2
+   integer, parameter :: rep(3) = [2, 2, 2]
 
    call get_lattice_points(lattice, rep, .true., trans)
 
@@ -203,11 +203,6 @@ subroutine solve(self, mol, error, cn, qloc, dcndr, dcndL, dqlocdr, dqlocdL, &
    ! Update cache
    allocate(cache)
    call self%update(mol, cache, cn, qloc, dcndr, dcndL, dqlocdr, dqlocdL)
-
-   ! Get lattice points
-   if (any(mol%periodic)) then
-      call get_dir_trans(mol%lattice, trans)
-   end if
 
    ! Setup the Coulomb matrix
    ndim = mol%nat + 1

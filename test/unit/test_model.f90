@@ -15,14 +15,13 @@
 
 module test_model
    use mctc_env, only: wp
-   use mctc_env_testing, only: new_unittest, unittest_type, error_type, check, test_failed
+   use mctc_env_testing, only: new_unittest, unittest_type, error_type, test_failed
    use mctc_io_structure, only: structure_type, new
    use mstore, only: get_structure
    use multicharge_model, only: mchrg_model_type
    use multicharge_model_eeqbc, only: eeqbc_model
    use multicharge_param, only: new_eeq2019_model, new_eeqbc2025_model
    use multicharge_model_cache, only: cache_container
-   use multicharge_blas, only: gemv
    use multicharge_charge, only: get_charges, get_eeq_charges, get_eeqbc_charges
    implicit none
    private
@@ -222,7 +221,7 @@ subroutine test_dadL(error, mol, model)
    integer :: ic, jc, iat
    real(wp), parameter :: trans(3, 1) = 0.0_wp
    real(wp), parameter :: step = 1.0e-6_wp, unity(3, 3) = reshape(&
-   & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+   & [1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
    real(wp), allocatable :: dadr(:, :, :), dadL(:, :, :), atrace(:, :)
@@ -379,7 +378,7 @@ subroutine test_dbdL(error, mol, model)
    integer :: iat, ic, jc
    real(wp), parameter :: trans(3, 1) = 0.0_wp
    real(wp), parameter :: step = 1.0e-6_wp, unity(3, 3) = reshape(&
-   & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+   & [1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
    real(wp), allocatable :: dbdr(:, :, :), dbdL(:, :, :)
@@ -597,11 +596,11 @@ subroutine test_numsigma(error, mol, model)
    integer :: ic, jc
    real(wp), parameter :: trans(3, 1) = 0.0_wp
    real(wp), parameter :: step = 1.0e-6_wp, unity(3, 3) = reshape(&
-      & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+      & [1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
    real(wp), allocatable :: energy(:), gradient(:, :)
-   real(wp), allocatable :: lattr(:, :), xyz(:, :)
+   real(wp), allocatable :: xyz(:, :)
    real(wp) :: er, el, eps(3, 3), numsigma(3, 3), sigma(3, 3)
 
    allocate (cn(mol%nat), dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat), &
@@ -613,7 +612,6 @@ subroutine test_numsigma(error, mol, model)
 
    eps(:, :) = unity
    xyz(:, :) = mol%xyz
-   lattr = trans
    lp: do ic = 1, 3
       do jc = 1, 3
          energy(:) = 0.0_wp
@@ -741,7 +739,7 @@ subroutine test_numdqdL(error, mol, model)
    integer :: ic, jc
    real(wp), parameter :: trans(3, 1) = 0.0_wp
    real(wp), parameter :: step = 1.0e-6_wp, unity(3, 3) = reshape(&
-      & [1, 0, 0, 0, 1, 0, 0, 0, 1], shape(unity))
+      & [1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
    real(wp), allocatable :: qr(:), ql(:), dqdr(:, :, :), dqdL(:, :, :)

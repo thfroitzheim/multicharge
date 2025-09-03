@@ -30,8 +30,8 @@ module multicharge_param_eeqbc2025
 
    !> Element-specific electronegativity for the EEQ_BC charges.
    interface get_eeqbc_chi
-      module procedure get_eeqbc_chi_sym
-      module procedure get_eeqbc_chi_num
+      module procedure :: get_eeqbc_chi_sym
+      module procedure :: get_eeqbc_chi_num
    end interface get_eeqbc_chi
 
    !> Element-specific chemical hardnesses for the EEQ_BC charges.
