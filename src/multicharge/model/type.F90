@@ -30,7 +30,6 @@ module multicharge_model_type
    use mctc_cutoff, only: get_lattice_points
    use mctc_ncoord, only: ncoord_type
    use multicharge_blas, only: gemv, symv, gemm
-   use multicharge_ewald, only: get_alpha
    use multicharge_lapack, only: sytrf, sytrs, sytri
    use multicharge_wignerseitz, only: wignerseitz_cell_type, new_wignerseitz_cell
    use multicharge_model_cache, only: model_cache, cache_container
