@@ -142,7 +142,7 @@ end subroutine get_dir_trans
 subroutine get_rec_trans(lattice, trans)
    real(wp), intent(in) :: lattice(:, :)
    real(wp), allocatable, intent(out) :: trans(:, :)
-   integer, parameter :: rep(3) = 2
+   integer, parameter :: rep(3) = [2, 2, 2]
    real(wp) :: rec_lat(3, 3)
 
    rec_lat = twopi * transpose(matinv_3x3(lattice))
