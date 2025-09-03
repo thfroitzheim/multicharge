@@ -617,7 +617,6 @@ subroutine test_numsigma(error, mol, model)
          energy(:) = 0.0_wp
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = matmul(eps, xyz)
-         lattr(:, :) = matmul(eps, trans)
          call model%ncoord%get_coordination_number(mol, trans, cn)
          call model%local_charge(mol, trans, qloc)
          call model%solve(mol, error, cn, qloc, energy=energy)
@@ -627,7 +626,6 @@ subroutine test_numsigma(error, mol, model)
          energy(:) = 0.0_wp
          eps(jc, ic) = eps(jc, ic) - 2*step
          mol%xyz(:, :) = matmul(eps, xyz)
-         lattr(:, :) = matmul(eps, trans)
          call model%ncoord%get_coordination_number(mol, trans, cn)
          call model%local_charge(mol, trans, qloc)
          call model%solve(mol, error, cn, qloc, energy=energy)
@@ -636,7 +634,6 @@ subroutine test_numsigma(error, mol, model)
 
          eps(jc, ic) = eps(jc, ic) + step
          mol%xyz(:, :) = xyz
-         lattr(:, :) = trans
          numsigma(jc, ic) = 0.5_wp*(er - el)/step
       end do
    end do lp
