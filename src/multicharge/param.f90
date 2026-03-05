@@ -23,8 +23,8 @@ module multicharge_param
    use multicharge_param_eeq2019, only: get_eeq_chi, get_eeq_eta, &
       & get_eeq_rad, get_eeq_kcnchi
    use multicharge_param_eeqbc2025, only: get_eeqbc_chi, get_eeqbc_eta, &
-      & get_eeqbc_rad, get_eeqbc_kcnchi, get_eeqbc_kqchi, get_eeqbc_kqeta, &
-      & get_eeqbc_cap, get_eeqbc_cov_radii, get_eeqbc_avg_cn
+      & get_eeqbc_rad, get_eeqbc_kcnchi, get_eeqbc_kqchi, get_eeqbc_cap, &
+      & get_eeqbc_cov_radii, get_eeqbc_avg_cn, get_eeqbc_rvdw_scale
    implicit none
    private
 
@@ -80,15 +80,16 @@ subroutine new_eeqbc2025_model(mol, model, error)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
-   real(wp), parameter :: kcnrad = 0.14_wp
-   real(wp), parameter :: kbc = 0.60_wp
+   real(wp), parameter :: kcnrad = 0.30_wp
+   real(wp), parameter :: kbc = 0.75_wp
    real(wp), parameter :: cutoff = 25.0_wp
    real(wp), parameter :: cn_exp = 2.0_wp
    real(wp), parameter :: norm_exp = 0.75_wp
 
+   integer :: isp, jsp, izp, jzp
    real(wp), allocatable :: chi(:), eta(:), rad(:), kcnchi(:), &
-      & kqchi(:), kqeta(:), cap(:), rcov(:), avg_cn(:), en(:), &
-      & rvdw(:, :)
+      & kqchi(:), cap(:), rcov(:), avg_cn(:), en(:), &
+      & rvdw(:, :), rvdw_scale(:)
    type(eeqbc_model), allocatable :: eeqbc
 
    chi = get_eeqbc_chi(mol%num)
@@ -96,10 +97,10 @@ subroutine new_eeqbc2025_model(mol, model, error)
    rad = get_eeqbc_rad(mol%num)
    kcnchi = get_eeqbc_kcnchi(mol%num)
    kqchi = get_eeqbc_kqchi(mol%num)
-   kqeta = get_eeqbc_kqeta(mol%num)
    cap = get_eeqbc_cap(mol%num)
    rcov = get_eeqbc_cov_radii(mol%num)
    avg_cn = get_eeqbc_avg_cn(mol%num)
+   rvdw_scale = get_eeqbc_rvdw_scale(mol%num)
    ! Electronegativities normalized to Fluorine
    ! with actinides (Th-Lr) set to average of 1.30
    en = get_pauling_en(mol%num)
@@ -111,12 +112,20 @@ subroutine new_eeqbc2025_model(mol, model, error)
    en = merge(1.20_wp, en, mol%num == 93 .or. mol%num == 94 &
       &.or. mol%num == 97 .or. mol%num == 103)
    en = en / 3.98_wp
-   rvdw = get_vdw_rad(spread(mol%num(mol%id), 2, mol%nat), &
-      & spread(mol%num(mol%id), 1, mol%nat)) * autoaa
+   allocate(rvdw(mol%nid, mol%nid))
+   do isp = 1, mol%nid
+      izp = mol%num(isp)
+      do jsp = 1, mol%nid
+         jzp = mol%num(jsp)
+         rvdw(jsp, isp) = get_vdw_rad(jzp, izp) * autoaa &
+            & * 0.5_wp * (rvdw_scale(isp) + rvdw_scale(jsp))
+         rvdw(isp, jsp) = rvdw(jsp, isp)
+      end do
+   end do
 
    allocate(eeqbc)
    call new_eeqbc_model(eeqbc, mol=mol, error=error, chi=chi, &
-      & rad=rad, eta=eta, kcnchi=kcnchi, kqchi=kqchi, kqeta=kqeta, &
+      & rad=rad, eta=eta, kcnchi=kcnchi, kqchi=kqchi, &
       & kcnrad=kcnrad, cap=cap, avg_cn=avg_cn, rvdw=rvdw, kbc=kbc, &
       & cutoff=cutoff, cn_exp=cn_exp, rcov=rcov, en=en, &
       & norm_exp=norm_exp)

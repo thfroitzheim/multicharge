@@ -50,8 +50,6 @@ module multicharge_model_type
       real(wp), allocatable :: kcnchi(:)
       !> Local charge scaling factor for electronegativity
       real(wp), allocatable :: kqchi(:)
-      !> Local charge scaling factor for chemical hardness
-      real(wp), allocatable :: kqeta(:)
       !> CN scaling factor for charge width
       real(wp), allocatable :: kcnrad
       !> Coordination number
