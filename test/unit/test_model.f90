@@ -29,6 +29,7 @@ module test_model
    public :: collect_model
 
    real(wp), parameter :: thr = 100*epsilon(1.0_wp)
+   real(wp), parameter :: thr1 = 1e5 * epsilon(1.0_wp)
    real(wp), parameter :: thr2 = sqrt(epsilon(1.0_wp))
 
 contains
@@ -86,7 +87,7 @@ subroutine collect_model(testsuite)
 
 end subroutine collect_model
 
-subroutine test_dadr(error, mol, model)
+subroutine test_dadr(error, mol, model, thr_in)
 
    !> Molecular structure data
    type(structure_type), intent(inout) :: mol
@@ -97,10 +98,13 @@ subroutine test_dadr(error, mol, model)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
    integer :: iat, ic, jat, kat
-   real(wp) :: thr2_local
+   real(wp) :: thr_
    real(wp), parameter :: trans(3, 1) = 0.0_wp
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 5.0e-6_wp
    real(wp), allocatable :: cn(:)
    real(wp), allocatable :: qloc(:)
    real(wp), allocatable :: dcndr(:, :, :), dcndL(:, :, :), dqlocdr(:, :, :), dqlocdL(:, :, :)
@@ -109,19 +113,14 @@ subroutine test_dadr(error, mol, model)
    type(cache_container), allocatable :: cache
    allocate (cache)
 
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
+
    allocate (cn(mol%nat), qloc(mol%nat), amatr1(mol%nat + 1, mol%nat + 1), amatl1(mol%nat + 1, mol%nat + 1), &
       & amatr2(mol%nat + 1, mol%nat + 1), amatl2(mol%nat + 1, mol%nat + 1), &
       & dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat), dqlocdr(3, mol%nat, mol%nat), &
       & dqlocdL(3, 3, mol%nat), dadr(3, mol%nat, mol%nat + 1), dadL(3, 3, mol%nat + 1), &
       & atrace(3, mol%nat), numtrace(3, mol%nat), numgrad(3, mol%nat, mol%nat + 1), qvec(mol%nat))
-
-   ! Set tolerance higher if testing eeqbc model
-   select type (model)
-   type is (eeqbc_model)
-      thr2_local = 3.0_wp*thr2
-   class default
-      thr2_local = thr2
-   end select
 
    ! Obtain the vector of charges
    call model%ncoord%get_coordination_number(mol, trans, cn)
@@ -195,7 +194,7 @@ subroutine test_dadr(error, mol, model)
       dadr(:, iat, iat) = atrace(:, iat) + dadr(:, iat, iat)
    end do
 
-   if (any(abs(dadr(:, :, :) - numgrad(:, :, :)) > thr2_local)) then
+   if (any(abs(dadr(:, :, :) - numgrad(:, :, :)) > thr_)) then
       call test_failed(error, "Derivative of the A matrix does not match")
       print'(a)', "dadr:"
       print'(3es21.12)', dadr
@@ -207,7 +206,7 @@ subroutine test_dadr(error, mol, model)
 
 end subroutine test_dadr
 
-subroutine test_dadL(error, mol, model)
+subroutine test_dadL(error, mol, model, thr_in)
 
    !> Molecular structure data
    type(structure_type), intent(inout) :: mol
@@ -218,9 +217,13 @@ subroutine test_dadL(error, mol, model)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
    integer :: ic, jc, iat
+   real(wp) :: thr_
    real(wp), parameter :: trans(3, 1) = 0.0_wp
-   real(wp), parameter :: step = 1.0e-6_wp, unity(3, 3) = reshape(&
+   real(wp), parameter :: step = 5.0e-6_wp, unity(3, 3) = reshape(&
    & [1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
@@ -230,6 +233,9 @@ subroutine test_dadL(error, mol, model)
    real(wp) :: eps(3, 3)
    type(cache_container), allocatable :: cache
    allocate (cache)
+
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
 
    allocate (cn(mol%nat), dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat), &
       & qloc(mol%nat), dqlocdr(3, mol%nat, mol%nat), dqlocdL(3, 3, mol%nat), &
@@ -284,7 +290,7 @@ subroutine test_dadL(error, mol, model)
    call model%get_coulomb_derivs(mol, cache, qvec, dadr, dadL, atrace)
    if (allocated(error)) return
 
-   if (any(abs(dadL(:, :, :) - numsigma(:, :, :)) > thr2)) then
+   if (any(abs(dadL(:, :, :) - numsigma(:, :, :)) > thr_)) then
       call test_failed(error, "Derivative of the A matrix does not match")
       print'(a)', "dadL:"
       print'(3es21.12)', dadL
@@ -296,7 +302,7 @@ subroutine test_dadL(error, mol, model)
 
 end subroutine test_dadL
 
-subroutine test_dbdr(error, mol, model)
+subroutine test_dbdr(error, mol, model, thr_in)
 
    !> Molecular structure data
    type(structure_type), intent(inout) :: mol
@@ -307,15 +313,22 @@ subroutine test_dbdr(error, mol, model)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
    integer :: iat, ic
+   real(wp) :: thr_
    real(wp), parameter :: trans(3, 1) = 0.0_wp
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 5.0e-6_wp
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
    real(wp), allocatable :: dbdr(:, :, :), dbdL(:, :, :)
    real(wp), allocatable :: numgrad(:, :, :), xvecr(:), xvecl(:)
    type(cache_container), allocatable :: cache
    allocate (cache)
+
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
 
    allocate (cn(mol%nat), dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat), &
       & qloc(mol%nat), dqlocdr(3, mol%nat, mol%nat), dqlocdL(3, 3, mol%nat), &
@@ -352,7 +365,7 @@ subroutine test_dbdr(error, mol, model)
    call model%get_xvec(mol, cache, xvecl) ! need to call this for xtmp in cache (eeqbc)
    call model%get_xvec_derivs(mol, cache, dbdr, dbdL)
 
-   if (any(abs(dbdr(:, :, :) - numgrad(:, :, :)) > thr2)) then
+   if (any(abs(dbdr(:, :, :) - numgrad(:, :, :)) > thr_)) then
       call test_failed(error, "Derivative of the b vector does not match")
       print'(a)', "dbdr:"
       print'(3es21.14)', dbdr
@@ -364,7 +377,7 @@ subroutine test_dbdr(error, mol, model)
 
 end subroutine test_dbdr
 
-subroutine test_dbdL(error, mol, model)
+subroutine test_dbdL(error, mol, model, thr_in)
 
    !> Molecular structure data
    type(structure_type), intent(inout) :: mol
@@ -375,9 +388,13 @@ subroutine test_dbdL(error, mol, model)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
    integer :: iat, ic, jc
+   real(wp) :: thr_
    real(wp), parameter :: trans(3, 1) = 0.0_wp
-   real(wp), parameter :: step = 1.0e-6_wp, unity(3, 3) = reshape(&
+   real(wp), parameter :: step = 5.0e-6_wp, unity(3, 3) = reshape(&
    & [1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
@@ -387,6 +404,9 @@ subroutine test_dbdL(error, mol, model)
    real(wp) :: eps(3, 3)
    type(cache_container), allocatable :: cache
    allocate (cache)
+
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
 
    allocate (cn(mol%nat), dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat), &
       & qloc(mol%nat), dqlocdr(3, mol%nat, mol%nat), dqlocdL(3, 3, mol%nat), &
@@ -432,7 +452,7 @@ subroutine test_dbdL(error, mol, model)
    call model%get_xvec(mol, cache, xvecl) ! need to call this for xtmp in cache (eeqbc)
    call model%get_xvec_derivs(mol, cache, dbdr, dbdL)
 
-   if (any(abs(dbdL(:, :, :) - numsigma(:, :, :)) > thr2)) then
+   if (any(abs(dbdL(:, :, :) - numsigma(:, :, :)) > thr_)) then
       call test_failed(error, "Derivative of the b vector does not match")
       print'(a)', "dbdL:"
       print'(3es21.14)', dbdL
@@ -444,7 +464,7 @@ subroutine test_dbdL(error, mol, model)
 
 end subroutine test_dbdL
 
-subroutine gen_test(error, mol, model, qref, eref)
+subroutine gen_test(error, mol, model, qref, eref, thr_in)
 
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -461,10 +481,17 @@ subroutine gen_test(error, mol, model, qref, eref)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
+   real(wp) :: thr_
    real(wp), parameter :: trans(3, 1) = 0.0_wp
    real(wp), allocatable :: cn(:), qloc(:)
    real(wp), allocatable :: energy(:)
    real(wp), allocatable :: qvec(:)
+
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
 
    allocate (cn(mol%nat), qloc(mol%nat))
 
@@ -485,7 +512,7 @@ subroutine gen_test(error, mol, model, qref, eref)
    if (allocated(error)) return
 
    if (present(qref)) then
-      if (any(abs(qvec - qref) > thr)) then
+      if (any(abs(qvec - qref) > thr_)) then
          call test_failed(error, "Partial charges do not match")
          print'(a)', "Charges:"
          print'(3es21.14)', qvec
@@ -496,7 +523,7 @@ subroutine gen_test(error, mol, model, qref, eref)
    if (allocated(error)) return
 
    if (present(eref)) then
-      if (any(abs(energy - eref) > thr)) then
+      if (any(abs(energy - eref) > thr_)) then
          call test_failed(error, "Energies do not match")
          print'(a)', "Energy:"
          print'(3es21.14)', energy
@@ -507,7 +534,7 @@ subroutine gen_test(error, mol, model, qref, eref)
 
 end subroutine gen_test
 
-subroutine test_numgrad(error, mol, model)
+subroutine test_numgrad(error, mol, model, thr_in)
 
    !> Molecular structure data
    type(structure_type), intent(inout) :: mol
@@ -518,14 +545,21 @@ subroutine test_numgrad(error, mol, model)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
    integer :: iat, ic
+   real(wp) :: thr_
    real(wp), parameter :: trans(3, 1) = 0.0_wp
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 5.0e-6_wp
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
    real(wp), allocatable :: energy(:), gradient(:, :), sigma(:, :)
    real(wp), allocatable :: numgrad(:, :)
    real(wp) :: er, el
+
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
 
    allocate (cn(mol%nat), dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat), &
       & qloc(mol%nat), dqlocdr(3, mol%nat, mol%nat), dqlocdL(3, 3, mol%nat), &
@@ -561,16 +595,11 @@ subroutine test_numgrad(error, mol, model)
    call model%ncoord%get_coordination_number(mol, trans, cn, dcndr, dcndL)
    call model%local_charge(mol, trans, qloc, dqlocdr, dqlocdL)
 
-   ! dcndr(:, :, :) = 0.0_wp
-   ! dcndL(:, :, :) = 0.0_wp
-   ! dqlocdr(:, :, :) = 0.0_wp
-   ! dqlocdL(:, :, :) = 0.0_wp
-
    call model%solve(mol, error, cn, qloc, dcndr, dcndL, &
       & dqlocdr, dqlocdL, gradient=gradient, sigma=sigma)
    if (allocated(error)) return
 
-   if (any(abs(gradient(:, :) - numgrad(:, :)) > thr2)) then
+   if (any(abs(gradient(:, :) - numgrad(:, :)) > thr_)) then
       call test_failed(error, "Derivative of energy does not match")
       print'(a)', "Energy gradient:"
       print'(3es21.14)', gradient
@@ -582,7 +611,7 @@ subroutine test_numgrad(error, mol, model)
 
 end subroutine test_numgrad
 
-subroutine test_numsigma(error, mol, model)
+subroutine test_numsigma(error, mol, model, thr_in)
 
    !> Molecular structure data
    type(structure_type), intent(inout) :: mol
@@ -593,15 +622,22 @@ subroutine test_numsigma(error, mol, model)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
    integer :: ic, jc
+   real(wp) :: thr_
    real(wp), parameter :: trans(3, 1) = 0.0_wp
-   real(wp), parameter :: step = 1.0e-6_wp, unity(3, 3) = reshape(&
+   real(wp), parameter :: step = 5.0e-6_wp, unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
    real(wp), allocatable :: energy(:), gradient(:, :)
    real(wp), allocatable :: xyz(:, :)
    real(wp) :: er, el, eps(3, 3), numsigma(3, 3), sigma(3, 3)
+
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
 
    allocate (cn(mol%nat), dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat), &
       & qloc(mol%nat), dqlocdr(3, mol%nat, mol%nat), dqlocdL(3, 3, mol%nat), &
@@ -647,7 +683,7 @@ subroutine test_numsigma(error, mol, model)
       & dqlocdr, dqlocdL, energy, gradient, sigma)
    if (allocated(error)) return
 
-   if (any(abs(sigma(:, :) - numsigma(:, :)) > thr2)) then
+   if (any(abs(sigma(:, :) - numsigma(:, :)) > thr_)) then
       call test_failed(error, "Derivative of energy does not match")
       print'(a)', "Energy strain:"
       print'(3es21.14)', sigma
@@ -659,7 +695,7 @@ subroutine test_numsigma(error, mol, model)
 
 end subroutine test_numsigma
 
-subroutine test_numdqdr(error, mol, model)
+subroutine test_numdqdr(error, mol, model, thr_in)
 
    !> Molecular structure data
    type(structure_type), intent(inout) :: mol
@@ -670,13 +706,20 @@ subroutine test_numdqdr(error, mol, model)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
    integer :: iat, ic
+   real(wp) :: thr_
    real(wp), parameter :: trans(3, 1) = 0.0_wp
-   real(wp), parameter :: step = 1.0e-6_wp
+   real(wp), parameter :: step = 5.0e-6_wp
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
    real(wp), allocatable :: ql(:), qr(:), dqdr(:, :, :), dqdL(:, :, :)
    real(wp), allocatable :: numdr(:, :, :)
+
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
 
    allocate (cn(mol%nat), dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat), &
       & qloc(mol%nat), dqlocdr(3, mol%nat, mol%nat), dqlocdL(3, 3, mol%nat), &
@@ -710,7 +753,7 @@ subroutine test_numdqdr(error, mol, model)
       & dqlocdr, dqlocdL, dqdr=dqdr, dqdL=dqdL)
    if (allocated(error)) return
 
-   if (any(abs(dqdr(:, :, :) - numdr(:, :, :)) > thr2)) then
+   if (any(abs(dqdr(:, :, :) - numdr(:, :, :)) > thr_)) then
       call test_failed(error, "Derivative of charges does not match")
       print'(a)', "Charge gradient:"
       print'(3es21.14)', dqdr
@@ -722,7 +765,7 @@ subroutine test_numdqdr(error, mol, model)
 
 end subroutine test_numdqdr
 
-subroutine test_numdqdL(error, mol, model)
+subroutine test_numdqdL(error, mol, model, thr_in)
 
    !> Molecular structure data
    type(structure_type), intent(inout) :: mol
@@ -733,15 +776,22 @@ subroutine test_numdqdL(error, mol, model)
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
+   !> Test threshold
+   real(wp), intent(in), optional :: thr_in
+
    integer :: ic, jc
+   real(wp) :: thr_
    real(wp), parameter :: trans(3, 1) = 0.0_wp
-   real(wp), parameter :: step = 1.0e-6_wp, unity(3, 3) = reshape(&
+   real(wp), parameter :: step = 5.0e-6_wp, unity(3, 3) = reshape(&
       & [1, 0, 0, 0, 1, 0, 0, 0, 1], [3, 3])
    real(wp), allocatable :: cn(:), dcndr(:, :, :), dcndL(:, :, :)
    real(wp), allocatable :: qloc(:), dqlocdr(:, :, :), dqlocdL(:, :, :)
    real(wp), allocatable :: qr(:), ql(:), dqdr(:, :, :), dqdL(:, :, :)
    real(wp), allocatable :: lattr(:, :), xyz(:, :), numdL(:, :, :)
    real(wp) :: eps(3, 3)
+
+   thr_ = thr
+   if (present(thr_in)) thr_ = thr_in
 
    allocate (cn(mol%nat), dcndr(3, mol%nat, mol%nat), dcndL(3, 3, mol%nat), &
       & qloc(mol%nat), dqlocdr(3, mol%nat, mol%nat), dqlocdL(3, 3, mol%nat), &
@@ -784,7 +834,7 @@ subroutine test_numdqdL(error, mol, model)
       & dqlocdr, dqlocdL, dqdr=dqdr, dqdL=dqdL)
    if (allocated(error)) return
 
-   if (any(abs(dqdL(:, :, :) - numdL(:, :, :)) > thr2)) then
+   if (any(abs(dqdL(:, :, :) - numdL(:, :, :)) > thr_)) then
       call test_failed(error, "Derivative of charges does not match")
       print'(a)', "Charge gradient:"
       print'(3es21.14)', dqdL
@@ -807,7 +857,7 @@ subroutine test_eeq_dadr_mb01(error)
    call get_structure(mol, "MB16-43", "01")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_dadr(error, mol, model)
+   call test_dadr(error, mol, model, thr_in=thr1)
 
 end subroutine test_eeq_dadr_mb01
 
@@ -820,10 +870,9 @@ subroutine test_eeq_dadL_mb01(error)
    class(mchrg_model_type), allocatable :: model
 
    call get_structure(mol, "MB16-43", "01")
-   !call get_structure(mol, "ICE10", "gas")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_dadL(error, mol, model)
+   call test_dadL(error, mol, model, thr_in=thr1)
 
 end subroutine test_eeq_dadL_mb01
 
@@ -838,7 +887,7 @@ subroutine test_eeq_dbdr_mb01(error)
    call get_structure(mol, "MB16-43", "01")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_dbdr(error, mol, model)
+   call test_dbdr(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeq_dbdr_mb01
 
@@ -853,7 +902,7 @@ subroutine test_eeq_dbdL_mb01(error)
    call get_structure(mol, "MB16-43", "01")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_dbdL(error, mol, model)
+   call test_dbdL(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeq_dbdL_mb01
 
@@ -1047,7 +1096,7 @@ subroutine test_eeq_g_mb05(error)
    call get_structure(mol, "MB16-43", "05")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numgrad(error, mol, model)
+   call test_numgrad(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeq_g_mb05
 
@@ -1062,7 +1111,7 @@ subroutine test_eeq_g_mb06(error)
    call get_structure(mol, "MB16-43", "06")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numgrad(error, mol, model)
+   call test_numgrad(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeq_g_mb06
 
@@ -1077,7 +1126,7 @@ subroutine test_eeq_s_mb07(error)
    call get_structure(mol, "MB16-43", "07")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numsigma(error, mol, model)
+   call test_numsigma(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeq_s_mb07
 
@@ -1092,7 +1141,7 @@ subroutine test_eeq_s_mb08(error)
    call get_structure(mol, "MB16-43", "08")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numsigma(error, mol, model)
+   call test_numsigma(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeq_s_mb08
 
@@ -1107,7 +1156,7 @@ subroutine test_eeq_dqdr_mb09(error)
    call get_structure(mol, "MB16-43", "09")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numdqdr(error, mol, model)
+   call test_numdqdr(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeq_dqdr_mb09
 
@@ -1122,7 +1171,7 @@ subroutine test_eeq_dqdr_mb10(error)
    call get_structure(mol, "MB16-43", "10")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numdqdr(error, mol, model)
+   call test_numdqdr(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeq_dqdr_mb10
 
@@ -1137,7 +1186,7 @@ subroutine test_eeq_dqdL_mb11(error)
    call get_structure(mol, "MB16-43", "11")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numdqdL(error, mol, model)
+   call test_numdqdL(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeq_dqdL_mb11
 
@@ -1152,7 +1201,7 @@ subroutine test_eeq_dqdL_mb12(error)
    call get_structure(mol, "MB16-43", "12")
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numdqdL(error, mol, model)
+   call test_numdqdL(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeq_dqdL_mb12
 
@@ -1175,7 +1224,7 @@ subroutine test_g_h2plus(error)
    call new(mol, num, xyz, charge)
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numgrad(error, mol, model)
+   call test_numgrad(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_g_h2plus
 
@@ -1199,7 +1248,7 @@ subroutine test_eeq_dadr_znooh(error)
    call new(mol, num, xyz, charge)
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_dadr(error, mol, model)
+   call test_dadr(error, mol, model, thr_in=thr1)
 
 end subroutine test_eeq_dadr_znooh
 
@@ -1223,7 +1272,7 @@ subroutine test_eeq_dbdr_znooh(error)
    call new(mol, num, xyz, charge)
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_dbdr(error, mol, model)
+   call test_dbdr(error, mol, model, thr_in=thr1)
 
 end subroutine test_eeq_dbdr_znooh
 
@@ -1248,7 +1297,7 @@ subroutine test_g_znooh(error)
    call new(mol, num, xyz, charge)
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numgrad(error, mol, model)
+   call test_numgrad(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_g_znooh
 
@@ -1273,7 +1322,7 @@ subroutine test_dqdr_znooh(error)
    call new(mol, num, xyz, charge)
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
-   call test_numdqdr(error, mol, model)
+   call test_numdqdr(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_dqdr_znooh
 
@@ -1288,7 +1337,7 @@ subroutine test_eeqbc_dadr_mb01(error)
    call get_structure(mol, "MB16-43", "01")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_dadr(error, mol, model)
+   call test_dadr(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_dadr_mb01
 
@@ -1303,7 +1352,7 @@ subroutine test_eeqbc_dadL_mb01(error)
    call get_structure(mol, "MB16-43", "01")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_dadL(error, mol, model)
+   call test_dadL(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_dadL_mb01
 
@@ -1318,7 +1367,7 @@ subroutine test_eeqbc_dbdr_mb01(error)
    call get_structure(mol, "MB16-43", "01")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_dbdr(error, mol, model)
+   call test_dbdr(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_dbdr_mb01
 
@@ -1333,7 +1382,7 @@ subroutine test_eeqbc_dbdL_mb01(error)
    call get_structure(mol, "MB16-43", "01")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_dbdL(error, mol, model)
+   call test_dbdL(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_dbdL_mb01
 
@@ -1348,7 +1397,7 @@ subroutine test_eeqbc_dadr_mb05(error)
    call get_structure(mol, "MB16-43", "05")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_dadr(error, mol, model)
+   call test_dadr(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_dadr_mb05
 
@@ -1363,7 +1412,7 @@ subroutine test_eeqbc_dadL_mb05(error)
    call get_structure(mol, "MB16-43", "05")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_dadL(error, mol, model)
+   call test_dadL(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_dadL_mb05
 
@@ -1378,7 +1427,7 @@ subroutine test_eeqbc_dbdr_mb05(error)
    call get_structure(mol, "MB16-43", "05")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_dbdr(error, mol, model)
+   call test_dbdr(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_dbdr_mb05
 
@@ -1559,7 +1608,7 @@ subroutine test_eeqbc_g_mb05(error)
    call get_structure(mol, "MB16-43", "05")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_numgrad(error, mol, model)
+   call test_numgrad(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_g_mb05
 
@@ -1574,7 +1623,7 @@ subroutine test_eeqbc_g_mb06(error)
    call get_structure(mol, "MB16-43", "06")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_numgrad(error, mol, model)
+   call test_numgrad(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_g_mb06
 
@@ -1589,7 +1638,7 @@ subroutine test_eeqbc_s_mb07(error)
    call get_structure(mol, "MB16-43", "07")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_numsigma(error, mol, model)
+   call test_numsigma(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_s_mb07
 
@@ -1604,7 +1653,7 @@ subroutine test_eeqbc_s_mb08(error)
    call get_structure(mol, "MB16-43", "08")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_numsigma(error, mol, model)
+   call test_numsigma(error, mol, model, thr_in=thr1*100)
 
 end subroutine test_eeqbc_s_mb08
 
@@ -1619,7 +1668,7 @@ subroutine test_eeqbc_dqdr_mb09(error)
    call get_structure(mol, "MB16-43", "09")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_numdqdr(error, mol, model)
+   call test_numdqdr(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeqbc_dqdr_mb09
 
@@ -1634,7 +1683,7 @@ subroutine test_eeqbc_dqdr_mb10(error)
    call get_structure(mol, "MB16-43", "10")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_numdqdr(error, mol, model)
+   call test_numdqdr(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeqbc_dqdr_mb10
 
@@ -1649,7 +1698,7 @@ subroutine test_eeqbc_dqdL_mb11(error)
    call get_structure(mol, "MB16-43", "11")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_numdqdL(error, mol, model)
+   call test_numdqdL(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeqbc_dqdL_mb11
 
@@ -1664,7 +1713,7 @@ subroutine test_eeqbc_dqdL_mb12(error)
    call get_structure(mol, "MB16-43", "12")
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call test_numdqdL(error, mol, model)
+   call test_numdqdL(error, mol, model, thr_in=thr1*10)
 
 end subroutine test_eeqbc_dqdL_mb12
 
