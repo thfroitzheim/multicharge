@@ -1044,7 +1044,7 @@ subroutine test_eeqbc_dbdr_co2(error)
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
 
-   call test_dbdr(error, mol, model, thr_in=thr1*100)
+   call test_dbdr(error, mol, model, thr_in=thr2)
 
 end subroutine test_eeqbc_dbdr_co2
 
