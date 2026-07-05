@@ -98,10 +98,14 @@ module multicharge_model_eeqbc
    !> Default exponent of error function in bond capacitance
    real(wp), parameter :: default_kbc = 0.65_wp
 
+   !> Default scaling factor for the external electric field
+   real(wp), parameter :: default_efield_scale = 10.0_wp
+
 contains
 
 subroutine new_eeqbc_model(self, mol, error, chi, rad, eta, kcnchi, kqchi, kqeta, &
-   & kqeta_pre, kcnrad, cap, avg_cn, rvdw, kbc, cutoff, cn_exp, rcov, en, cn_max)
+   & kqeta_pre, kcnrad, cap, avg_cn, rvdw, kbc, cutoff, cn_exp, rcov, en, cn_max, &
+   & efield_scale)
    !> Bond capacitor electronegativity equilibration model
    type(eeqbc_model), intent(out) :: self
    !> Molecular structure data
@@ -142,6 +146,8 @@ subroutine new_eeqbc_model(self, mol, error, chi, rad, eta, kcnchi, kqchi, kqeta
    real(wp), intent(in), optional :: cn_max
    !> Pauling electronegativities normalized to fluorine
    real(wp), intent(in), optional :: en(:)
+   !> Scaling factor for external electric field
+   real(wp), intent(in), optional :: efield_scale
 
    self%chi = chi
    self%rad = rad
@@ -159,6 +165,12 @@ subroutine new_eeqbc_model(self, mol, error, chi, rad, eta, kcnchi, kqchi, kqeta
       self%kbc = kbc
    else
       self%kbc = default_kbc
+   end if
+
+   if (present(efield_scale)) then
+      self%efield_scale = efield_scale
+   else
+      self%efield_scale = default_efield_scale
    end if
 
    ! Coordination number
@@ -246,11 +258,12 @@ subroutine update(self, mol, cache, cn, qloc, dcndr, dcndL, dqlocdr, dqlocdL)
 
 end subroutine update
 
-subroutine get_xvec(self, mol, cache, xvec)
+subroutine get_xvec(self, mol, cache, xvec, efield)
    class(eeqbc_model), intent(in) :: self
    type(structure_type), intent(in) :: mol
    type(cache_container), intent(inout) :: cache
    real(wp), intent(out) :: xvec(:)
+   real(wp), intent(in), optional :: efield(:)
 
    type(eeqbc_cache), pointer :: ptr
 
@@ -273,6 +286,16 @@ subroutine get_xvec(self, mol, cache, xvec)
          & + self%kqchi(izp) * ptr%qloc(iat)
    end do
    ptr%xtmp(mol%nat + 1) = mol%charge
+
+   ! Add external electric field to the RHS if present
+   if (present(efield)) then
+      !$omp parallel do default(none) schedule(runtime) &
+      !$omp shared(mol, self, ptr, efield) private(iat)
+      do iat = 1, mol%nat
+         ptr%xtmp(iat) = ptr%xtmp(iat) + self%efield_scale &
+            & * dot_product(mol%xyz(:, iat), efield)
+      end do
+   end if
 
    call gemv(ptr%cmat, ptr%xtmp, xvec)
 

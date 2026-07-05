@@ -48,6 +48,8 @@ module multicharge_model_type
       real(wp), allocatable :: eta(:)
       !> CN scaling factor for electronegativity
       real(wp), allocatable :: kcnchi(:)
+      !> Scaling factor for the external electric field
+      real(wp) :: efield_scale = 1.0_wp
       !> Coordination number
       class(ncoord_type), allocatable :: ncoord
       !> Electronegativity weighted CN for local charge
@@ -100,12 +102,13 @@ module multicharge_model_type
          real(wp), intent(out) :: dadr(:, :, :), dadL(:, :, :), atrace(:, :)
       end subroutine get_coulomb_derivs
 
-      subroutine get_xvec(self, mol, cache, xvec)
+      subroutine get_xvec(self, mol, cache, xvec, efield)
          import :: mchrg_model_type, cache_container, structure_type, wp
          class(mchrg_model_type), intent(in) :: self
          type(structure_type), intent(in) :: mol
          type(cache_container), intent(inout) :: cache
          real(wp), intent(out) :: xvec(:)
+         real(wp), intent(in), optional :: efield(:)
       end subroutine get_xvec
 
       subroutine get_xvec_derivs(self, mol, cache, dxdr, dxdL)
@@ -143,7 +146,7 @@ subroutine get_rec_trans(lattice, trans)
 end subroutine get_rec_trans
 
 subroutine solve(self, mol, error, cn, qloc, dcndr, dcndL, dqlocdr, dqlocdL, &
-   & energy, gradient, sigma, qvec, dqdr, dqdL)
+   & energy, gradient, sigma, qvec, dqdr, dqdL, efield)
    !> Electronegativity equilibration model
    class(mchrg_model_type), intent(in) :: self
    !> Molecular structure data
@@ -174,6 +177,8 @@ subroutine solve(self, mol, error, cn, qloc, dcndr, dcndL, dqlocdr, dqlocdL, &
    real(wp), intent(out), contiguous, optional :: dqdr(:, :, :)
    !> Optional derivative of the atomic partial charges w.r.t. lattice vectors
    real(wp), intent(out), contiguous, optional :: dqdL(:, :, :)
+   !> Optional external electric field
+   real(wp), intent(in), contiguous, optional :: efield(:)
 
    integer :: ic, jc, iat, ndim
    logical :: grad, cpq, dcn
@@ -205,7 +210,7 @@ subroutine solve(self, mol, error, cn, qloc, dcndr, dcndL, dqlocdr, dqlocdL, &
 
    ! Get RHS of ES equation
    allocate(xvec(ndim))
-   call self%get_xvec(mol, cache, xvec)
+   call self%get_xvec(mol, cache, xvec, efield)
 
    vrhs = xvec
    ainv = amat
