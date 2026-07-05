@@ -47,6 +47,7 @@ subroutine collect_model(testsuite)
       & new_unittest("eeq-dbdL-mb01", test_eeq_dbdL_mb01), &
       & new_unittest("eeq-charges-mb01", test_eeq_q_mb01), &
       & new_unittest("eeq-charges-mb02", test_eeq_q_mb02), &
+      & new_unittest("eeq-charges-efield-mb03", test_eeq_q_efield_mb03), &
       & new_unittest("eeq-charges-actinides", test_eeq_q_actinides), &
       & new_unittest("eeq-energy-mb03", test_eeq_e_mb03), &
       & new_unittest("eeq-energy-mb04", test_eeq_e_mb04), &
@@ -72,7 +73,7 @@ subroutine collect_model(testsuite)
       & new_unittest("eeqbc-dbdr-mb05", test_eeqbc_dbdr_mb05), &
       & new_unittest("eeqbc-charges-mb01", test_eeqbc_q_mb01), &
       & new_unittest("eeqbc-charges-mb02", test_eeqbc_q_mb02), &
-      & new_unittest("eeqbc-charges-gxtb-mb03", test_eeqbc_q_gxtb_mb03), &
+      & new_unittest("eeqbc-charges-efield-mb03", test_eeqbc_q_efield_mb03), &
       & new_unittest("eeqbc-charges-actinides", test_eeqbc_q_actinides), &
       & new_unittest("eeqbc-energy-mb03", test_eeqbc_e_mb03), &
       & new_unittest("eeqbc-energy-mb04", test_eeqbc_e_mb04), &
@@ -465,7 +466,7 @@ subroutine test_dbdL(error, mol, model, thr_in)
 
 end subroutine test_dbdL
 
-subroutine gen_test(error, mol, model, qref, eref, thr_in)
+subroutine gen_test(error, mol, model, qref, eref, efield, thr_in)
 
    !> Molecular structure data
    type(structure_type), intent(in) :: mol
@@ -478,6 +479,9 @@ subroutine gen_test(error, mol, model, qref, eref, thr_in)
 
    !> Reference energies
    real(wp), intent(in), optional :: eref(:)
+
+   !> Optional external electric field
+   real(wp), intent(in), contiguous, optional :: efield(:)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -509,7 +513,7 @@ subroutine gen_test(error, mol, model, qref, eref, thr_in)
       allocate (qvec(mol%nat))
    end if
 
-   call model%solve(mol, error, cn, qloc, energy=energy, qvec=qvec)
+   call model%solve(mol, error, cn, qloc, energy=energy, qvec=qvec, efield=efield)
    if (allocated(error)) return
 
    if (present(qref)) then
@@ -981,6 +985,32 @@ subroutine test_eeq_q_mb02(error)
 
 end subroutine test_eeq_q_mb02
 
+subroutine test_eeq_q_efield_mb03(error)
+
+   !> Error handling
+   type(error_type), allocatable, intent(out) :: error
+
+   type(structure_type) :: mol
+   class(mchrg_model_type), allocatable :: model
+   real(wp), parameter :: ref(16) = [&
+      & -4.64683071797936E-2_wp, -5.88362906740707E-1_wp, -2.43193732528000E-1_wp, &
+      &  3.51507795107742E-1_wp,  1.07024670739935E+0_wp, -1.33168464005268E+0_wp, &
+      & -3.16175726821207E-1_wp,  1.00361461209188E-1_wp, -4.01096542813355E-1_wp, &
+      &  1.92924990021589E-1_wp,  5.17680704422172E-1_wp, -7.08449332513941E-1_wp, &
+      & -6.26659781146154E-1_wp,  2.23247991084403E-1_wp,  1.68482074733023E+0_wp, &
+      &  1.21300573221157E-1_wp]
+
+   ! Electric field
+   real(wp), parameter :: efield(3) = [&
+      & 0.2000000000000_wp, 0.00000000000000_wp, 0.00000000000000_wp]
+      
+   call get_structure(mol, "MB16-43", "03")
+   call new_eeq2019_model(mol, model, error)
+   if (allocated(error)) return
+   call gen_test(error, mol, model, qref=ref, efield=efield)
+
+end subroutine test_eeq_q_efield_mb03
+
 subroutine test_eeq_q_actinides(error)
 
    !> Error handling
@@ -996,33 +1026,7 @@ subroutine test_eeq_q_actinides(error)
       & 7.20768968601809E-02_wp, -3.36652347675997E-03_wp, -1.14546280789657E-01_wp, &
       &-8.55922398441004E-02_wp, -1.23131162140762E-01_wp]
 
-   !> Molecular structure data
-   mol%nat = 17
-   mol%nid = 17
-   mol%id = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, &
-      & 12, 13, 14, 15, 16, 17]
-   mol%num = [87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, &
-      & 98, 99, 100, 101, 102, 103]
-   mol%xyz = reshape([ &
-      & 0.98692316414074_wp, 6.12727238368797_wp, -6.67861597188102_wp, &
-      & 3.63898862390869_wp, 5.12109301182962_wp, 3.01908613326278_wp, &
-      & 5.14503571563551_wp, -3.97172984617710_wp, 3.82011791828867_wp, &
-      & 6.71986847575494_wp, 1.71382138402812_wp, 3.92749159076307_wp, &
-      & 4.13783589704826_wp, -2.10695793491818_wp, 0.19753203068899_wp, &
-      & 8.97685097698326_wp, -3.08813636191844_wp, -4.45568615593938_wp, &
-      & 12.5486412940776_wp, -1.77128765259458_wp, 0.59261498922861_wp, &
-      & 7.82051475868325_wp, -3.97159756604558_wp, -0.53637703616916_wp, &
-      &-0.43444574624893_wp, -1.69696511583960_wp, -1.65898182093050_wp, &
-      &-4.71270645149099_wp, -0.11534827468942_wp, 2.84863373521297_wp, &
-      &-2.52061680335614_wp, 1.82937752749537_wp, -2.10366982879172_wp, &
-      & 0.13551154616576_wp, 7.99805359235043_wp, -1.55508522619903_wp, &
-      & 3.91594542499717_wp, -1.72975169129597_wp, -5.07944366756113_wp, &
-      &-1.03393930231679_wp, 4.69307230054046_wp, 0.02656940927472_wp, &
-      & 6.20675384557240_wp, 4.24490721493632_wp, -0.71004195169885_wp, &
-      & 7.04586341131562_wp, 5.20053667939076_wp, -7.51972863675876_wp, &
-      & 2.01082807362334_wp, 1.34838807211157_wp, -4.70482633508447_wp],&
-      & [3, 17])
-   mol%periodic = [.false.]
+   call get_structure(mol, "f-block", "Fr_to_Lr")
 
    call new_eeq2019_model(mol, model, error)
    if (allocated(error)) return
@@ -1044,12 +1048,6 @@ subroutine test_eeq_e_mb03(error)
       & 1.00618944521776E-1_wp, -6.61715169034150E-1_wp, -3.60531647289563E-1_wp, &
       &-4.87729666337974E-1_wp, 2.48257554279938E-1_wp, 6.96027176590956E-1_wp, &
       & 4.31679925875087E-2_wp]
-!      &-1.13826350631987E-1_wp,-5.62509056571450E-1_wp, 2.40314584307323E-2_wp, &
-!      & 2.34612384482528E-1_wp, 3.24513111881020E-1_wp, 4.02366323905675E-2_wp, &
-!      &-2.17529318207133E-1_wp, 2.75364844977006E-2_wp, 4.02137369467059E-2_wp, &
-!      & 5.04840322940993E-2_wp,-3.53634572772168E-1_wp,-1.87985748794416E-1_wp, &
-!      &-2.52739835528964E-1_wp, 1.24520645208966E-1_wp, 2.69468093358888E-1_wp, &
-!      & 2.15919407508634E-2_wp]
 
    call get_structure(mol, "MB16-43", "03")
    call new_eeq2019_model(mol, model, error)
@@ -1072,12 +1070,6 @@ subroutine test_eeq_e_mb04(error)
       & 1.78439005754586E-1_wp, -1.98703462666082E-1_wp, 4.19630120027785E-1_wp, &
       & 7.05569220334930E-2_wp, -4.50925107441869E-1_wp, 1.39289602382354E-1_wp, &
       &-2.67853086061429E-1_wp]
-!      & 5.48650497749607E-2_wp,-2.25780913208624E-1_wp, 4.35281631902307E-2_wp, &
-!      &-1.57205780814366E-1_wp, 4.09837366864403E-3_wp, 6.31282692438352E-2_wp, &
-!      & 7.48306233723622E-2_wp, 5.87730150647742E-2_wp, 6.10308494414398E-2_wp, &
-!      & 8.63933930367129E-2_wp,-9.99483536957020E-2_wp, 2.02497843626054E-1_wp, &
-!      & 3.47529062386466E-2_wp,-2.37058804560779E-1_wp, 6.74225102943070E-2_wp, &
-!      &-1.36552339896561E-1_wp]
 
    call get_structure(mol, "MB16-43", "04")
    call new_eeq2019_model(mol, model, error)
@@ -1440,12 +1432,12 @@ subroutine test_eeqbc_q_mb01(error)
    type(structure_type) :: mol
    class(mchrg_model_type), allocatable :: model
    real(wp), parameter :: ref(16) = [&
-      &  6.01041583365490E-1_wp, -7.57202582592143E-3_wp, -7.17952969056691E-1_wp, &
-      & -3.46459367825153E-2_wp, -4.67604677941373E-1_wp,  2.12322270726248E-1_wp, &
-      & -4.10098415429741E-2_wp, -7.47520884100198E-1_wp, -5.07650967255429E-1_wp, &
-      &  2.93207743868025E-1_wp,  2.18597150594557E-1_wp, -3.60169222413510E-1_wp, &
-      & -1.92487092305621E-2_wp,  8.55384452553004E-1_wp, -4.39075580356368E-1_wp, &
-      &  1.16189761339822E+0_wp]
+      &  6.32903725301166E-1_wp, -7.71443204126547E-3_wp, -7.30126556775918E-1_wp, &
+      & -4.08079248063400E-2_wp, -4.61764994406768E-1_wp,  2.19913152327846E-1_wp, &
+      & -4.46820893968889E-2_wp, -7.57845926944730E-1_wp, -5.27266751314462E-1_wp, &
+      &  3.09824720909729E-1_wp,  2.27358975013661E-1_wp, -3.46416998956131E-1_wp, &
+      & -4.02994805218128E-2_wp,  8.47990373946021E-1_wp, -4.50384578113030E-1_wp, &
+      &  1.16931878577892E+0_wp]
 
    real(wp), allocatable :: qvec(:)
 
@@ -1491,12 +1483,12 @@ subroutine test_eeqbc_q_mb02(error)
    type(structure_type) :: mol
    class(mchrg_model_type), allocatable :: model
    real(wp), parameter :: ref(16) = [&
-      & -2.14458033756715E-2_wp, -4.18031819205447E-1_wp, -1.98102578683893E-3_wp, &
-      & -6.76638066327142E-1_wp,  8.97477539941223E-1_wp,  2.55927571031789E-1_wp, &
-      &  2.47080396282182E-3_wp, -5.97001155625302E-3_wp,  2.87863433049505E-1_wp, &
-      &  2.54133838014654E-1_wp,  8.73094747565496E-3_wp,  5.64207140176912E-1_wp, &
-      & -6.22997643003189E-1_wp,  1.70190328498397E-2_wp, -1.19076615249599E-2_wp, &
-      & -5.28858275722897E-1_wp]
+      & -1.69665398824649E-2_wp, -4.32270661535272E-1_wp, -6.26403683679413E-3_wp, &
+      & -6.88817613829289E-1_wp,  8.95362545061185E-1_wp,  2.70746141526734E-1_wp, &
+      &  1.08422800496529E-2_wp, -1.28317580494467E-3_wp,  2.75439803515100E-1_wp, &
+      &  2.68499870178974E-1_wp,  3.81547556639640E-3_wp,  5.87326455169981E-1_wp, &
+      & -6.15643385641979E-1_wp,  1.58873204920929E-2_wp, -1.44876975394325E-2_wp, &
+      & -5.52186780489941E-1_wp]
 
    call get_structure(mol, "MB16-43", "02")
    call new_eeqbc2025_model(mol, model, error)
@@ -1505,7 +1497,7 @@ subroutine test_eeqbc_q_mb02(error)
 
 end subroutine test_eeqbc_q_mb02
 
-subroutine test_eeqbc_q_gxtb_mb03(error)
+subroutine test_eeqbc_q_efield_mb03(error)
 
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
@@ -1513,25 +1505,23 @@ subroutine test_eeqbc_q_gxtb_mb03(error)
    type(structure_type) :: mol
    class(mchrg_model_type), allocatable :: model
    real(wp), parameter :: ref(16) = [&
-      & -1.16953082074622E-1_wp, -6.68872930125756E-1_wp,  2.04418882348080E-2_wp, &
-      &  3.71645733473615E-1_wp,  7.22513054591685E-1_wp,  3.17390426021992E-1_wp, &
-      & -2.92649901476471E-1_wp,  2.66587431908954E-2_wp,  2.52637710189117E-2_wp, &
-      &  4.94217894486533E-2_wp, -4.93755135088651E-1_wp, -3.01554397768461E-1_wp, &
-      & -4.36329640198681E-1_wp,  2.06541209189912E-1_wp,  5.53306675348431E-1_wp, &
-      &  1.69317962137373E-2_wp]
+      & -6.12586624677719E-2_wp, -5.31846912123736E-1_wp, -4.71909201710113E-1_wp, &
+      & -1.42856702465464E-2_wp,  1.76195357892538E+0_wp, -1.89773398095283E+0_wp, &
+      & -5.11341671556666E-1_wp,  1.74179418754102E-1_wp, -7.18178840653669E-1_wp, &
+      &  3.45682831606476E-1_wp,  1.59417757957131E+0_wp, -1.05102554883270E+0_wp, &
+      & -1.53635272844525E+0_wp,  2.85371459341214E-1_wp,  2.44160485902059E+0_wp, &
+      &  1.90963489770202E-1_wp]
 
-   ! Modified element specific CN-scaling of the radii used in g-xTB
-   real(wp), parameter :: kcnrad(9) = [&
-      & 0.85000000000000_wp, 0.75000000000000_wp, 0.90000000000000_wp, &
-      & 0.75000000000000_wp, 0.55000000000000_wp, 0.60000000000000_wp, &
-      & 0.75000000000000_wp, 0.75000000000000_wp, 0.75000000000000_wp]
+   ! Electric field
+   real(wp), parameter :: efield(3) = [&
+      & 0.2000000000000_wp, 0.00000000000000_wp, 0.00000000000000_wp]
       
    call get_structure(mol, "MB16-43", "03")
-   call new_eeqbc2025_model(mol, model, error, kcnrad)
+   call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
-   call gen_test(error, mol, model, qref=ref)
+   call gen_test(error, mol, model, qref=ref, efield=efield)
 
-end subroutine test_eeqbc_q_gxtb_mb03
+end subroutine test_eeqbc_q_efield_mb03
 
 subroutine test_eeqbc_q_actinides(error)
 
@@ -1541,40 +1531,14 @@ subroutine test_eeqbc_q_actinides(error)
    type(structure_type) :: mol
    class(mchrg_model_type), allocatable :: model
    real(wp), parameter :: ref(17) = [&
-      &  7.18546151141508E-2_wp, -2.64547309957379E-1_wp,  1.88167103611354E-1_wp, &
-      &  2.96505547675391E-2_wp,  2.03083151244256E-1_wp, -1.95879770512419E-2_wp, &
-      &  3.78771896751263E-3_wp, -1.53534786031095E-1_wp, -1.25732490748489E-1_wp, &
-      &  1.10157948160029E-1_wp, -1.38160478791072E-1_wp, -1.26251167013458E-1_wp, &
-      & -2.20293348725406E-1_wp,  2.56955227261913E-1_wp, -2.78722660040636E-2_wp, &
-      &  1.52631368882451E-1_wp,  5.96921363129982E-2_wp]
+      &  4.80669255571553E-2_wp, -2.23681443476404E-1_wp,  2.95879870118081E-1_wp, &
+      &  1.40528551895345E-1_wp,  1.54496956558730E-1_wp, -1.31765078691778E-1_wp, &
+      &  6.43024168002473E-2_wp, -3.08519563494370E-1_wp, -2.76459245598841E-1_wp, &
+      &  1.78293689441428E-1_wp, -2.11018657500951E-1_wp, -1.03628773361279E-1_wp, &
+      & -1.71248308078648E-1_wp,  2.54400229067594E-1_wp, -5.83023049918706E-2_wp, &
+      &  2.01328580342047E-1_wp,  1.47326155413513E-1_wp]
 
-   ! Molecular structure data
-   mol%nat = 17
-   mol%nid = 17
-   mol%id = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, &
-      & 12, 13, 14, 15, 16, 17]
-   mol%num = [87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, &
-      & 98, 99, 100, 101, 102, 103]
-   mol%xyz = reshape([ &
-      & 0.98692316414074_wp, 6.12727238368797_wp, -6.67861597188102_wp, &
-      & 3.63898862390869_wp, 5.12109301182962_wp, 3.01908613326278_wp, &
-      & 5.14503571563551_wp, -3.97172984617710_wp, 3.82011791828867_wp, &
-      & 6.71986847575494_wp, 1.71382138402812_wp, 3.92749159076307_wp, &
-      & 4.13783589704826_wp, -2.10695793491818_wp, 0.19753203068899_wp, &
-      & 8.97685097698326_wp, -3.08813636191844_wp, -4.45568615593938_wp, &
-      & 12.5486412940776_wp, -1.77128765259458_wp, 0.59261498922861_wp, &
-      & 7.82051475868325_wp, -3.97159756604558_wp, -0.53637703616916_wp, &
-      &-0.43444574624893_wp, -1.69696511583960_wp, -1.65898182093050_wp, &
-      &-4.71270645149099_wp, -0.11534827468942_wp, 2.84863373521297_wp, &
-      &-2.52061680335614_wp, 1.82937752749537_wp, -2.10366982879172_wp, &
-      & 0.13551154616576_wp, 7.99805359235043_wp, -1.55508522619903_wp, &
-      & 3.91594542499717_wp, -1.72975169129597_wp, -5.07944366756113_wp, &
-      &-1.03393930231679_wp, 4.69307230054046_wp, 0.02656940927472_wp, &
-      & 6.20675384557240_wp, 4.24490721493632_wp, -0.71004195169885_wp, &
-      & 7.04586341131562_wp, 5.20053667939076_wp, -7.51972863675876_wp, &
-      & 2.01082807362334_wp, 1.34838807211157_wp, -4.70482633508447_wp],&
-      & [3, 17])
-   mol%periodic = [.false.]
+   call get_structure(mol, "f-block", "Fr_to_Lr")
 
    call new_eeqbc2025_model(mol, model, error)
    if (allocated(error)) return
@@ -1590,12 +1554,12 @@ subroutine test_eeqbc_e_mb03(error)
    type(structure_type) :: mol
    class(mchrg_model_type), allocatable :: model
    real(wp), parameter :: ref(16) = [&
-      &-6.94833074950150E-02_wp,-2.11560433481015E+00_wp,-9.11190388151725E-03_wp, &
-      &-7.17425124269749E-01_wp,-2.99421510641167E+00_wp,-3.21246539524502E-01_wp, &
-      &-5.33570939067067E-01_wp,-1.13032476090854E-02_wp,-1.11820670900830E-02_wp, &
-      &-2.20204861005569E-02_wp,-1.48426586681762E+00_wp,-3.49998723715796E-01_wp, &
-      &-9.28412495014996E-01_wp,-1.65612186195047E-01_wp,-1.38119730221886E+00_wp, &
-      &-7.73991519160659E-03_wp]
+      &-7.13037929565001E-02_wp,-2.21290111839864E+00_wp,-4.44620980279281E-03_wp, &
+      &-8.20034426277733E-01_wp,-3.03460923792286E+00_wp,-2.94498915643868E-01_wp, &
+      &-5.47668186319590E-01_wp,-5.11093502050816E-03_wp,-7.62576305269074E-03_wp, &
+      &-1.69757699209840E-02_wp,-1.39100827962396E+00_wp,-3.60942706501712E-01_wp, &
+      &-1.00661775006988E+00_wp,-1.57902801074962E-01_wp,-1.51550837392553E+00_wp, &
+      &-3.73109131483813E-03_wp]
 
    call get_structure(mol, "MB16-43", "03")
    call new_eeqbc2025_model(mol, model, error)
@@ -1612,12 +1576,12 @@ subroutine test_eeqbc_e_mb04(error)
    type(structure_type) :: mol
    class(mchrg_model_type), allocatable :: model
    real(wp), parameter :: ref(16) = [&
-      &-4.05320850999679E-03_wp,-4.48233611867420E-02_wp, 5.88525934603023E-05_wp, &
-      &-6.69989014576211E-01_wp,-1.91820335215672E+00_wp,-3.04143136159557E-03_wp, &
-      &-2.56988819625704E-02_wp,-9.81891947184532E-03_wp,-2.30983117593436E-04_wp, &
-      &-6.88478344746279E-04_wp,-4.61576194159087E-01_wp,-1.58651107106134E+00_wp, &
-      &-1.22295298816420E-02_wp,-1.47356761161889E+00_wp,-2.28144228195668E-02_wp, &
-      &-3.54378568387375E-04_wp]
+      &-3.33674113676415E-03_wp,-5.44196072807157E-02_wp,-1.60511919026824E-04_wp, &
+      &-6.26239659500731E-01_wp,-1.88496414946976E+00_wp,-2.41549274165224E-03_wp, &
+      &-2.44818567933807E-02_wp,-8.42096144753865E-03_wp,-2.56605548375923E-04_wp, &
+      &-1.07404145028536E-03_wp,-4.63559917227882E-01_wp,-1.55551196740487E+00_wp, &
+      &-1.00990611882491E-02_wp,-1.46634240024661E+00_wp,-2.25748599260378E-02_wp, &
+      &-9.00591538154401E-05_wp]
 
    call get_structure(mol, "MB16-43", "04")
    call new_eeqbc2025_model(mol, model, error)

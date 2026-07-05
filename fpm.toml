@@ -14,4 +14,4 @@ mctc-lib.tag = "v0.5.1"
 
 [dev-dependencies]
 mstore.git = "https://github.com/grimme-lab/mstore.git"
-mstore.tag = "v0.3.0"
+mstore.tag = "HEAD"
