@@ -85,7 +85,7 @@ subroutine new_eeqbc2025_model(mol, model, error)
    real(wp), parameter :: cutoff = 25.0_wp
    real(wp), parameter :: cn_exp = 1.80_wp
    real(wp), parameter :: kqeta_pre = 2.0_wp
-   real(wp), parameter :: efield_scale = 10.0_wp
+   real(wp), parameter :: efield_scale = 5.0_wp
 
    integer :: isp, jsp, izp, jzp
    real(wp), allocatable :: chi(:), eta(:), rad(:), kcnchi(:), kqchi(:), &
